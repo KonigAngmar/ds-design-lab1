@@ -139,7 +139,6 @@ def get_metrics():
 
 @app.post("/metrics/reset")
 def reset_metrics():
-    # 1. Reset metrics
     with _metrics_lock:
         metrics["post"] = {"count": 0, "logging_total_ms": 0.0, "counter_total_ms": 0.0}
         metrics["get_user"] = {
@@ -149,7 +148,6 @@ def reset_metrics():
         }
         metrics["get_accounts"] = {"count": 0, "counter_total_ms": 0.0}
 
-    # 2. Reset other services
     try:
         session.post(f"{LOGGING_URL}/reset")
         session.post(f"{COUNTER_URL}/reset")

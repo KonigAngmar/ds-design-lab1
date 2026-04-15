@@ -4,7 +4,7 @@ import httpx
 
 FACADE = "http://localhost:8000"
 N_CLIENTS = 10
-N_REQ = 10000  # Кількість запитів на одного клієнта
+N_REQ = 10000
 
 
 async def reset_system():
@@ -35,26 +35,23 @@ async def get_json(path: str):
 
 async def run_scenario(name: str, coro_func):
     print(f"\n>>> Запуск сценарію: {name}")
-    await reset_system()  # Скидаємо метрики перед кожним тестом
+    await reset_system()
 
     total_requests = N_CLIENTS * N_REQ
     start_time = time.perf_counter()
 
-    # Запускаємо 10 клієнтів паралельно
     await coro_func()
 
     end_time = time.perf_counter()
     total_time = end_time - start_time
     rps = total_requests / total_time
 
-    # Отримуємо метрики внутрішнього часу від facade-service
     metrics_resp = await get_json("/metrics")
     m = metrics_resp["metrics"]["post"]
 
     log_avg = m.get("logging_avg_ms", 0)
     cnt_avg = m.get("counter_avg_ms", 0)
 
-    # Визначаємо "внесок" (contribution) на основі середнього часу обробки одного запиту
     print(f"\n--- Результати для {name} ---")
     print(f"Загальна кількість запитів   : {total_requests}")
     print(f"Загальний час (сек)          : {total_time:.3f}")
@@ -66,7 +63,6 @@ async def run_scenario(name: str, coro_func):
 
 
 async def main():
-    # Сценарій 1: 10 користувачів, кожен на свій рахунок
     async def scenario_1():
         tasks = [one_client(f"user_{i}", 1, N_REQ) for i in range(N_CLIENTS)]
         await asyncio.gather(*tasks)
@@ -75,13 +71,11 @@ async def main():
         "Сценарій 1: 10 клієнтів, у кожного свій рахунок (+1 x 10k)", scenario_1
     )
 
-    # Верифікація Сценарію 1
     accounts = await get_json("/accounts")
     balances = accounts.get("balances", {})
     passed = all(balances.get(f"user_{i}") == N_REQ for i in range(N_CLIENTS))
     print(f"ВЕРИФІКАЦІЯ 1: {'УСПІШНО' if passed else 'НЕВДАЛО'}")
 
-    # Сценарій 2: 10 клієнтів на один спільний рахунок
     async def scenario_2():
         tasks = [one_client("shared_account", 1, N_REQ) for _ in range(N_CLIENTS)]
         await asyncio.gather(*tasks)
@@ -90,7 +84,6 @@ async def main():
         "Сценарій 2: 10 клієнтів, один спільний рахунок (+1 x 10k)", scenario_2
     )
 
-    # Верифікація Сценарію 2
     user_data = await get_json("/user/shared_account")
     final_balance = user_data.get("balance", 0)
     expected = N_CLIENTS * N_REQ
